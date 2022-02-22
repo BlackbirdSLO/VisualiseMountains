@@ -1,12 +1,9 @@
-import { DataPreparer } from "./dataPreparer";
+import { DataHelper } from "./dataHelper";
 
 var d3 = require("d3");
 
 export class Mountains {
   constructor(_height, _width, _margins, mountains_data) {
-    this.dataPreparer = new DataPreparer(mountains_data);
-    this.mountains_data = this.dataPreparer.getTenLowestPeaks();
-    console.log(this.mountains_data);
     this.height = _height;
     this.width = _width;
     this.margins = _margins;
@@ -14,29 +11,39 @@ export class Mountains {
       .select("svg#visualiseMountains")
       .attr("width", this.width)
       .attr("height", this.height);
-    this.xScale = this.getXScale([0, 1]);
-    this.yScale = this.getYScale([0, 3000]);
-    this.tooltips = undefined;
-    this.mountains = undefined;
-    this.addXAxis();
-    this.addYAxis();
-    this.mountains = this.svg.append("g").attr("id", "mountains");
-    this.tooltips = this.svg.append("g").attr("id", "tooltips");
-    this.drawMountainsCurved();
+    this.mountainsGroup = this.svg.append("g").attr("id", "mountainsGroup");
+    //.attr("transform", "translate(0, 20)");
+    this.namesGroup = this.svg.append("g").attr("id", "namesGroup");
+    this.tooltipsGroup = this.svg.append("g").attr("id", "tooltipsGroup");
+
+    this.dataHelper = new DataHelper(mountains_data);
+    this.mountains_data = this.dataHelper.getTenHighestPeaks();
+
+    // TODO make scales according to the actual mountains data (this.mountains_data);
+    console.log("mountains data:");
+    console.log(this.mountains_data);
+
+    this.xScale = this.addXAxis([0, 10], false);
+    this.yScale = this.addYAxis([0, 3000], false);
+
+    this.plotMountainNames();
+    this.plotMountainTopLines();
+    this.plotMountains();
   }
 
+  // DEPRECATED?
   updateAndRedraw(id) {
     switch (id) {
       case 0: {
-        this.mountains_data = this.dataPreparer.getTenHighestPeaks();
+        this.mountains_data = this.dataHelper.getTenHighestPeaks();
         break;
       }
       case 1: {
-        this.mountains_data = this.dataPreparer.getTenLowestPeaks();
+        this.mountains_data = this.dataHelper.getTenLowestPeaks();
         break;
       }
       case 2: {
-        this.mountains_data = this.dataPreparer.getTenMostPopular();
+        this.mountains_data = this.dataHelper.getTenMostPopular();
         break;
       }
       default:
@@ -45,211 +52,275 @@ export class Mountains {
     //this.drawMountainsCurved();
   }
 
-  drawMountains() {
-    this.addTooltips();
-    this.addMountainPolygons();
-  }
-
-  drawMountainsCurved() {
-    //this.addTooltips();
-    //this.addMountainPolygons();
-    this.addMountainsCurved();
-  }
-
-  addTooltips() {
-    this.tooltips
-      .selectAll("line")
-      .data(this.mountains_data)
-      .join("line")
-      .transition()
-      .delay(50)
-      .attr("x1", (d, i) => this.getOverheadDottedX(d, i))
-      .attr("x2", (d, i) => this.getOverheadDottedX(d, i))
-      .attr("y1", 0)
-      .attr("y2", (d, i) => this.getOverheadDottedY(d, i))
-      .attr("stroke", "black")
-      .attr("stroke-dasharray", "6 6");
-
-    this.tooltips
+  plotMountainNames() {
+    this.namesGroup
       .selectAll("text")
       .data(this.mountains_data)
       .join("text")
-      .attr("id", (d, i) => d.name)
-      .attr("x", (d, i) => this.getOverheadDottedX(d, i) + 5)
-      .attr("y", (d, i) => 20)
+      .attr("class", (d, i) => d.name)
+      .attr("x", (d, i) => this.xScale(i * 2 + 1))
+      .attr("y", (d, i) => this.yScale(200))
       .text((d, i) => d.name);
 
-    /*
-    this.tooltips
-      .selectAll("g")
-      .append("text")
-      .attr("x", (d, i) => this.getOverheadDottedX(d, i) + 5)
-      .attr("y", (d, i) => 40)
-      .text((d, i) => `${d.Size}m`);
-      */
-  }
-
-  getRandomInt(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-
-  addMountainPolygons() {
-    console.log("mountain polygons");
-    console.log(this.mountains_data);
-    this.mountains
-      .selectAll("polygon")
-      .data(this.mountains_data)
-      .join("polygon")
-      .transition()
-      .attr("points", (d, i) => this.getTrianglePoints(d, i))
-      .attr("fill", "darkgreen")
-      .attr("stroke", "gray")
-      .attr("stroke-width", "2");
-  }
-
-  addMountainsCurved() {
-    // TODO make scale values global
-    let mountainScaleX = d3.scaleLinear().domain([0, 5]).range([50, 1350]);
-    let mountainScaleY = d3.scaleLinear().domain([0, 3000]).range([550, 50]);
-
-    let mountainPath = d3
-      .line()
-      //.curve(d3.curveCardinal)
-      //.curve(d3.curveBumpX) // seems to be the best for now...
-      .curve(d3.curveNatural) //
-      .x((d) => mountainScaleX(d.step))
-      .y((d) => mountainScaleY(d.value));
-
-    let mountainData = [
-      { step: 0, value: 0 },
-      { step: 1, value: 3000 },
-      { step: 2, value: 1400 },
-      { step: 3, value: 2600 },
-      { step: 4, value: 1300 },
-    ];
-
-    let routeScaleX = d3.scaleLinear().domain([0, 5]).range([50, 1350]);
-    let routeScaleY = d3.scaleLinear().domain([0, 3000]).range([550, 50]);
-
-    let routePath = d3
-      .line()
-      //.curve(d3.curveBumpY) // seems like the best so fat
-      .curve(d3.curveNatural) // seems like the best so fat
-      //.lineRadial()
-
-      .x((d) => routeScaleX(d.step))
-      .y((d) => routeScaleY(d.value));
-
-    let route1 = [
-      /*{ step: 1.15, value: 300 },*/
-      /*{ step: 0.85, value: 600 },
-      { step: 1.15, value: 1200 },
-      { step: 0.85, value: 2400 },*/
-    ];
-
-    if (false)
-      for (let i = 0; i < 1; i++) {
-        route1.push({ step: this.getRandomInt(70, 130) / 100, value: i * 150 });
-      }
-
-    route1.push({ step: 1.5, value: 600 });
-    route1.push({ step: 1.25, value: 2200 });
-    route1.push({ step: 1, value: 3000 });
-
-    console.log(route1);
-
-    let route2 = [
-      { step: 1.35, value: 500 },
-      /*{ step: 0.75, value: 700 },
-      { step: 1.15, value: 1400 },
-      { step: 0.85, value: 2200 },*/
-      { step: 1, value: 3000 },
-    ];
-
-    let route3 = [
-      { step: 0.85, value: 800 },
-      /*{ step: 0.95, value: 1200 },
-      { step: 0.95, value: 1600 },
-      { step: 1.05, value: 2300 },*/
-      { step: 1, value: 3000 },
-    ];
-
-    //let pathData = [{start:300},{},{},{}];
-
-    let el = d3.select("#visualiseMountains");
-    el.append("path")
-      .attr("d", mountainPath(mountainData))
-      .attr("stroke", "black")
-      .attr("fill", "none");
-
-    let route1_path = el
-      .append("path")
-      .classed("route1", true)
-      .attr("d", routePath(route1))
-      .attr("stroke", "gray")
-      .attr("stroke-width", "3")
-      .attr("stroke-dasharray", 10)
-      .attr("fill", "none");
-
-    // Trying to animate route1
-
-    let str_offset_1 = -50;
-    let str_offset_2 = -50;
-    let str_offset_3 = -50;
-
-    function pathTransition(route, str_offset, duration) {
-      route
-        .transition()
-        .duration(duration)
-        .ease(d3.easeLinear)
-        .attr("stroke-dashoffset", str_offset)
-        .on("end", () => {
-          str_offset -= 50;
-          pathTransition(route, str_offset, duration);
-        });
-    }
-    pathTransition(route1_path, str_offset_1, 500);
-
-    if (true) {
-      let route2_path = el
-        .append("path")
-        .classed("route2", true)
-        .attr("d", routePath(route2))
-        .attr("stroke", "gray")
-        .attr("stroke-dasharray", 10)
-        .attr("fill", "none");
-
-      pathTransition(route2_path, str_offset_2, 5000);
-
-      let route3_path = el
-        .append("path")
-        .classed("route3", true)
-        .attr("d", routePath(route3))
-        .attr("stroke", "gray")
-        .attr("stroke-dasharray", 10)
-        .attr("fill", "none");
-
-      pathTransition(route3_path, str_offset_3, 2000);
-    }
-    /*
-    el.selectAll("path").on("mouseenter", function () {
-      d3.select(this).attr("stroke", "black");
+    this.namesGroup.selectAll("text").each(function () {
+      let element = d3.select(this);
+      //console.log(element);
+      let nameLength = element.node().getBoundingClientRect().width;
+      element.attr("x", element.attr("x") - nameLength / 2);
     });
 
-    el.selectAll("path").on("mouseleave", function () {
-      d3.select(this).attr("stroke", "lightgray");
+    /*this.tooltips.attr("x", function () {
+      let nameLength = d3.select(this).node().getBoundingClientRect().width;
+      console.log(nameLength);
+      debugger;
     });
     */
-    /*
-    this.mountains
-      .selectAll("polygon")
+  }
+
+  plotMountainTopLines() {
+    this.tooltipsGroup
+      .append("g")
+      .selectAll("line")
       .data(this.mountains_data)
-      .join("polygon")
+      .join("line")
+      .attr("x1", (d, i) => this.xScale(i * 2 + 1))
+      .attr("x2", (d, i) => this.xScale(i * 2 + 1))
+      .attr("y1", 0)
+      .attr("y2", (d, i) => this.yScale(d.height + 100))
+      .attr("stroke", "gray");
+  }
+
+  getLinePath() {
+    return d3
+      .line()
+      .x((d) => this.xScale(d.x))
+      .y((d) => this.yScale(d.height));
+  }
+
+  getMountainRoutesData() {
+    let addedRoutes = [];
+    let i = 1;
+    //this.mountains_data = this.mountains_data.slice(0, 2);
+    console.log(this.mountains_data);
+    this.mountains_data.forEach((mountain) => {
+      let fullHeight = mountain.height;
+      let scaleRoutesX = d3
+        .scaleLinear()
+        .domain([0, mountain.peakRoutes.length - 1])
+        .range([i - 0.5, i + 0.5]);
+
+      mountain.peakRoutes.forEach((r, j) => {
+        let heightDiff = fullHeight - r.heightDiff;
+        addedRoutes.push({
+          route: [
+            { x: scaleRoutesX(j), height: heightDiff },
+            { x: i, height: fullHeight },
+          ],
+          viewStotal: Number(
+            r.viewsTotal.replaceAll(",", "").replaceAll(".", "")
+          ),
+          name: r.name,
+          difficulty: r.difficulty,
+          heightDiff: heightDiff,
+          walkTime: this.getIntHours(r.walkTime),
+          position: i,
+        });
+      });
+      i += 2;
+    });
+
+    return addedRoutes;
+  }
+
+  plotMountains() {
+    let xScale = this.xScale;
+    let tooltipsGroup = this.tooltipsGroup;
+    let addedRoutes = this.getMountainRoutesData();
+    console.log("addedRoutes");
+    console.log(addedRoutes);
+
+    let routePathElement = this.mountainsGroup
+      .selectAll("g")
+      .data(addedRoutes)
+      .join("g")
+      .attr("class", (d, i) => d.name.replaceAll(" ", "_"));
+
+    routePathElement
+      .append("path")
+      .attr("d", (d, i) => this.getLinePath()(d.route))
+      .attr("opacity", "0.1")
+      .attr("stroke-width", "6")
+      .attr("stroke", "lightgray");
+
+    let transitionRoutes = routePathElement
+      .append("path")
+      .attr("d", (d, i) => this.getLinePath()(d.route))
+      .attr("opacity", "0.8")
+      .attr("stroke", (d, i) => {
+        switch (d.difficulty) {
+          case "zelo zahtevna označena pot":
+            return "red";
+
+          case "zelo zahtevna neoznačena steza":
+            return "blue";
+
+          case "zelo zahtevna označena pot":
+            return "red";
+
+          case "izjemno zahtevna označena pot":
+            return "green";
+
+          case "zelo zahtevno brezpotje":
+            return "gray";
+
+          case "alpinistični vzpon":
+            return "black";
+
+          case "zahtevna označena pot":
+            return "lightgray";
+
+          default:
+            break;
+        }
+      })
+      .attr("stroke-width", (d, i) => d.popularity)
+      //.attr("stroke-dasharray", "5 10") // 10
+      .attr("stroke-dasharray", (d, i) => {
+        // TODO dinamically form groups
+        if (d.viewStotal < 1000) {
+          return "5 30";
+        } else if (d.viewStotal >= 1000 && d.viewStotal < 10000) {
+          return "5 25";
+        } else if (d.viewStotal >= 10000 && d.viewStotal < 100000) {
+          return "5 15";
+        } else if (d.viewStotal >= 100000) {
+          return "5 10";
+        }
+      }); // 10;
+
+    routePathElement.on("mouseenter", function (ev, d) {
+      // append route name, heightDiff, Time
+      let routeInfo = tooltipsGroup.append("g").classed("routeInfo", true);
+
+      routeInfo
+        .append("text")
+        .text(d.name)
+        .attr("x", xScale(d.position))
+        .attr("y", 15);
+
+      routeInfo
+        .append("text")
+        .text(d.difficulty)
+        .attr("x", xScale(d.position))
+        .attr("y", 35);
+
+      routeInfo
+        .append("text")
+        .text(d.viewStotal)
+        .attr("x", xScale(d.position))
+        .attr("y", 55);
+
+      routeInfo
+        .append("text")
+        .text(d.walkTime + "h")
+        .attr("x", xScale(d.position))
+        .attr("y", 75);
+
+      //console.log(d3.select(this));
+
+      //this.mountainsGroup.selectAll("path").attr("opacity", "0.2");
+      routePathElement.attr("opacity", "0.4");
+
+      //console.log(d3.select(this));
+      d3.select(this).attr("opacity", "1");
+
+      d3.select(this)
+        .transition()
+        .duration(10000000)
+        .ease(d3.easeLinear)
+        .attr("stroke-dashoffset", (d, i) => {
+          if (d.walkTime <= 3) {
+            return -500000;
+          } else if (d.walkTime > 3 && d.walkTime <= 5) {
+            return -300000;
+          } else {
+            return -100000;
+          }
+        });
+
+      console.log(d);
+      //console.log(i);
+    });
+
+    routePathElement.on("mouseleave", (d, i) => {
+      this.tooltipsGroup.select("g.routeInfo").remove();
+      routePathElement.attr("opacity", "1");
+    });
+
+    if (false)
+      routePathElement
+        .append("path")
+        .attr("d", (d, i) => this.getLinePath()(d.route))
+        .attr("opacity", "0.8")
+        .attr("stroke", "transparent")
+        .attr("stroke-width", 2)
+        .attr("fill", "blue")
+        .on("mouseenter", (d, i) => {
+          console.log(d3.select(this));
+          console.log(d);
+          console.log(i);
+        });
+
+    if (false)
+      routePathElement
+        .transition()
+        .duration(10000000)
+        .ease(d3.easeLinear)
+        .attr("stroke-dashoffset", (d, i) => {
+          if (d.walkTime <= 3) {
+            return -500000;
+          } else if (d.walkTime > 3 && d.walkTime <= 5) {
+            return -300000;
+          } else {
+            return -100000;
+          }
+        });
+
+    //this.pathTransition(transitionRoutes, 1);
+  }
+
+  getIntHours(walkTime) {
+    walkTime = walkTime.replace("15", 25).replace("30", 50).replace("45", 75);
+    walkTime = walkTime.replace("min", "").replace("h", ".");
+    walkTime = walkTime.replaceAll(" ", "");
+    return Number(walkTime);
+  }
+
+  // makes the path look as if it's transiting. duration = speed
+  pathTransition(route, speed) {
+    let duration = 100000;
+    let str_offset = 0;
+    if (speed === 1) {
+      str_offset = -5000;
+    } else if (speed === 2) {
+      str_offset = -3000;
+    } else if (speed === 3) {
+      str_offset = -1000;
+    }
+
+    route
       .transition()
-      .attr("points", (d, i) => this.getTrianglePoints(d, i))
-      .attr("fill", "darkgreen")
-      .attr("stroke", "gray")
-      .attr("stroke-width", "2");*/
+      .duration(duration)
+      .ease(d3.easeLinear)
+      .attr("stroke-dashoffset", str_offset);
+    /*
+      .on("end", () => {
+        str_offset -= 50;
+        console.log("str_offset:" + str_offset);
+        console.log("duration:" + duration);
+        //this.pathTransition(route, str_offset, duration);
+      });
+      */
   }
 
   getOverheadDottedX(d, i) {
@@ -263,62 +334,46 @@ export class Mountains {
     return this.yScale(d.height);
   }
 
-  getTrianglePoints(d, i) {
-    let fullWidth = 300;
-    let fullHeight = this.height - /*yScale(d.Size)*/ this.margins.top;
-    let y = this.yScale(d.height);
-    let xMargin = (i + 1) * 100;
-
-    let topX = 250;
-    topX = xMargin + fullWidth / 2;
-    let topY = 60;
-    topY = y;
-    let leftX = 100;
-    leftX = xMargin;
-    let leftY = 400;
-    leftY = fullHeight;
-    let rightX = 400;
-    rightX = fullWidth + xMargin;
-    let rightY = 400;
-    rightY = fullHeight;
-
-    return `${topX},${topY} ${leftX},${leftY} ${rightX},${rightY}`;
+  addXAxis(domain, shouldPlot) {
+    let xScale = this.getXScale(domain);
+    if (shouldPlot) {
+      let xAxis = (g) =>
+        g
+          .attr(
+            "transform",
+            `translate(0,${this.height - this.margins.bottom})`
+          )
+          .call(d3.axisBottom(xScale));
+      this.svg.append("g").call(xAxis);
+    }
+    return xScale;
   }
 
-  addXAxis() {
-    let xAxis = (g) =>
-      g
-        .attr("transform", `translate(0,${this.height - this.margins.bottom})`)
-        .call(d3.axisBottom(this.xScale));
-    this.svg.append("g").call(xAxis);
-  }
+  addYAxis(domain, shouldPlot) {
+    let yScale = this.getYScale(domain);
+    if (shouldPlot) {
+      let yAxis = (g) =>
+        g
+          .attr("transform", `translate(${this.margins.left},0)`)
+          .call(d3.axisLeft(yScale));
+      this.svg.append("g").call(yAxis);
+    }
 
-  addYAxis() {
-    let yAxis = (g) =>
-      g
-        .attr("transform", `translate(${this.margins.left},0)`)
-        .call(d3.axisLeft(this.yScale));
-    this.svg.append("g").call(yAxis);
+    return yScale;
   }
 
   getXScale(domain) {
-    return (
-      d3
-        .scaleLinear()
-        //.domain([0, 3000])
-        .domain(domain)
-        .range([this.margins.left, this.width - this.margins.right])
-    );
+    return d3
+      .scaleLinear()
+      .domain(domain)
+      .range([this.margins.left, this.width - this.margins.right]);
   }
 
   getYScale(domain) {
-    return (
-      d3
-        .scaleLinear()
-        //.domain([0, 3000])
-        .domain(domain)
-        .range([this.height - this.margins.bottom, this.margins.top])
-    );
+    return d3
+      .scaleLinear()
+      .domain(domain)
+      .range([this.height - this.margins.bottom, this.margins.top]);
   }
 }
 //initChart();

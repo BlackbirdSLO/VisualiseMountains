@@ -1,4 +1,4 @@
-export class DataPreparer {
+export class DataHelper {
   constructor(mountains_data) {
     this.mountains_data = mountains_data;
   }
