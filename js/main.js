@@ -18,3 +18,20 @@ const mountains = new Mountains(
   margin,
   mountains_data_nearly_full
 );
+
+window.onload = function () {
+  console.log("test");
+  console.log(document.querySelector("section#main"));
+  let main = document.querySelector(".container");
+  console.log(main);
+
+  if (false)
+    main.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      console.log("test");
+      console.log(event);
+      main.scrollBy({
+        left: event.deltaY < 0 ? -30 : 30,
+      });
+    });
+};

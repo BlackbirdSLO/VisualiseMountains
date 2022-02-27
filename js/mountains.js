@@ -99,6 +99,7 @@ export class Mountains {
 
   getMountainRoutesData() {
     let addedRoutes = [];
+    let addedMountains = [];
     let i = 1;
     //this.mountains_data = this.mountains_data.slice(0, 2);
     console.log(this.mountains_data);
@@ -109,6 +110,7 @@ export class Mountains {
         .domain([0, mountain.peakRoutes.length - 1])
         .range([i - 0.5, i + 0.5]);
 
+      addedRoutes = [];
       mountain.peakRoutes.forEach((r, j) => {
         let heightDiff = fullHeight - r.heightDiff;
         addedRoutes.push({
@@ -126,34 +128,50 @@ export class Mountains {
           position: i,
         });
       });
+      addedMountains.push({
+        name: mountain.name,
+        routes: addedRoutes,
+        position: i,
+      });
       i += 2;
     });
 
-    return addedRoutes;
+    console.log("added mountains");
+    console.log(addedMountains);
+    return addedMountains;
   }
 
   plotMountains() {
     let xScale = this.xScale;
     let tooltipsGroup = this.tooltipsGroup;
-    let addedRoutes = this.getMountainRoutesData();
+    let mountains = this.getMountainRoutesData();
     console.log("addedRoutes");
-    console.log(addedRoutes);
+    console.log(mountains);
+    console.log(mountains.routes);
 
-    let routePathElement = this.mountainsGroup
+    let groupRoutes = this.mountainsGroup
       .selectAll("g")
-      .data(addedRoutes)
+      .data(mountains)
       .join("g")
       .attr("class", (d, i) => d.name.replaceAll(" ", "_"));
 
-    routePathElement
-      .append("path")
+    let backgroundRoutes = groupRoutes
+      .append("g")
+      .classed("background-routes", true)
+      .selectAll("path")
+      .data((d, i) => d.routes)
+      .join("path")
       .attr("d", (d, i) => this.getLinePath()(d.route))
       .attr("opacity", "0.1")
       .attr("stroke-width", "6")
       .attr("stroke", "lightgray");
 
-    let transitionRoutes = routePathElement
-      .append("path")
+    let transitionRoutes = groupRoutes
+      .append("g")
+      .classed("transition-routes", true)
+      .selectAll("path")
+      .data((d, i) => d.routes)
+      .join("path")
       .attr("d", (d, i) => this.getLinePath()(d.route))
       .attr("opacity", "0.8")
       .attr("stroke", (d, i) => {
@@ -198,8 +216,27 @@ export class Mountains {
         }
       }); // 10;
 
-    routePathElement.on("mouseenter", function (ev, d) {
+    if (false)
+      transitionRoutes
+        .append("animate")
+        .attr("attributeName", "stroke-dashoffset")
+        .attr("values", "-50;-20000")
+        .attr("dur", "500s")
+        .attr("repeatCount", "indefinite");
+    /*
+      <animate attributeName="stroke-dashoffset" values="-50;-200" dur="5s" repeatCount="indefinite"></animate>
+
+    <animate
+      attributeName="stroke-dashoffset"
+      values="-50;-200"
+      dur="5s"
+      repeatCount="indefinite"
+    ></animate>;
+*/
+    groupRoutes.on("mouseenter", function (ev, d) {
       // append route name, heightDiff, Time
+      tooltipsGroup.select("g.routeInfo").remove();
+      debugger;
       let routeInfo = tooltipsGroup.append("g").classed("routeInfo", true);
 
       routeInfo
@@ -229,36 +266,37 @@ export class Mountains {
       //console.log(d3.select(this));
 
       //this.mountainsGroup.selectAll("path").attr("opacity", "0.2");
-      routePathElement.attr("opacity", "0.4");
+      //routePathElement.attr("opacity", "0.1");
 
       //console.log(d3.select(this));
-      d3.select(this).attr("opacity", "1");
+      //d3.select(this).attr("opacity", "1");
 
-      d3.select(this)
-        .transition()
-        .duration(10000000)
-        .ease(d3.easeLinear)
-        .attr("stroke-dashoffset", (d, i) => {
-          if (d.walkTime <= 3) {
-            return -500000;
-          } else if (d.walkTime > 3 && d.walkTime <= 5) {
-            return -300000;
-          } else {
-            return -100000;
-          }
-        });
+      if (false)
+        d3.select(this)
+          .transition()
+          .duration(10000000)
+          .ease(d3.easeLinear)
+          .attr("stroke-dashoffset", (d, i) => {
+            if (d.walkTime <= 3) {
+              return -500000;
+            } else if (d.walkTime > 3 && d.walkTime <= 5) {
+              return -300000;
+            } else {
+              return -100000;
+            }
+          });
 
       console.log(d);
       //console.log(i);
     });
 
-    routePathElement.on("mouseleave", (d, i) => {
+    groupRoutes.on("mouseleave", (d, i) => {
       this.tooltipsGroup.select("g.routeInfo").remove();
-      routePathElement.attr("opacity", "1");
+      groupRoutes.attr("opacity", "1");
     });
 
     if (false)
-      routePathElement
+      groupRoutes
         .append("path")
         .attr("d", (d, i) => this.getLinePath()(d.route))
         .attr("opacity", "0.8")
@@ -272,7 +310,7 @@ export class Mountains {
         });
 
     if (false)
-      routePathElement
+      groupRoutes
         .transition()
         .duration(10000000)
         .ease(d3.easeLinear)
