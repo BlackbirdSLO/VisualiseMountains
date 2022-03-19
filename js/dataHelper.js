@@ -3,33 +3,33 @@ export class DataHelper {
     this.mountains_data = mountains_data;
   }
 
-  getTenHighestPeaks() {
+  getHighestPeaks(count) {
     //let highestPeaks = this.tenHighestPeaks;
     return this.mountains_data
-      .filter((x) => x.type.indexOf("vrh") !== -1)
+      .filter(
+        (x) => x.type.indexOf("vrh") !== -1 && x.peakRoutes.length > 3
+        /* &&
+          x.peaksite === "Kamniško Savinjske Alpe"*/
+      )
       .sort((x, y) => y.height - x.height)
-      .slice(0, 10);
-    return;
+      .slice(0, count);
   }
 
-  getTenLowestPeaks() {
+  getLowestPeaks(count) {
     return this.mountains_data
       .filter((x) => x.type.indexOf("vrh") !== -1)
       .sort((x, y) => x.height - y.height)
-      .slice(0, 10);
+      .slice(0, count);
   }
 
-  getTenMostPopular() {
-    let test = this.mountains_data;
-    debugger;
-
+  getMostPopular(count) {
     let t = this.mountains_data
       .filter((x) => x.type.indexOf("vrh") !== -1)
       .sort(
         (x, y) =>
           Number(y.views.replace(`.`, ``)) - Number(x.views.replace(`.`, ``))
       )
-      .slice(0, 10);
+      .slice(0, count);
     console.log(t);
     return t;
   }
