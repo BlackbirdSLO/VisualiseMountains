@@ -42,20 +42,13 @@ window.onload = function () {
 
   main.addEventListener("touchstart", (event) => {
     console.log("touchstart");
-    //console.log(event);
     xStart = event.touches[0].clientX;
     console.log(xStart);
   });
 
   main.addEventListener("touchmove", (event) => {
-    console.log("touchmove");
-    console.log(event);
     event.preventDefault();
     let xDelta = event.changedTouches[0].clientX - xStart;
-    //xStart = xStart - event.changedTouches[0].pageX;
-    console.log(xDelta);
-    //console.log(xStart);
-    //return;
     d3.select("g.container")
       .transition()
       .duration(50)
@@ -64,7 +57,6 @@ window.onload = function () {
 
   main.addEventListener("touchend", (event) => {
     console.log("touchend");
-    //console.log(event);
     xStart = event.changedTouches[0].clientX;
     console.log(xStart);
   });
